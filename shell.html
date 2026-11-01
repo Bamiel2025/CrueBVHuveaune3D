@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La crue de l'Huveaune — pluie, ruissellement et karst</title>
+<style>
+  :root{
+    --papier:#f5f0e6; --papier2:#fffdf7; --trait:#ddd2bd; --trait2:#c9bca1;
+    --encre:#2b2620; --encre2:#5d5346; --eau:#17607d; --eau2:#3f93b5;
+    --terre:#a8611f; --vert:#3d6b48; --or:#c08a1e;
+    --ombre:0 1px 2px rgba(60,45,20,.08),0 8px 24px rgba(60,45,20,.07);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--papier); color:var(--encre);
+    font:15px/1.55 "Segoe UI",system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased; overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  h1,h2,h3,h4{font-family:Georgia,"Iowan Old Style",serif;font-weight:600;margin:0 0 .5em}
+  h1{font-size:22px;letter-spacing:-.01em}
+  h2{font-size:20px}
+  h3{font-size:16px;margin-top:1.4em}
+  p{margin:0 0 .8em}
+  a{color:var(--eau)}
+
+  /* ---------- entête + onglets ---------- */
+  header{
+    flex:none; display:flex; align-items:center; gap:18px; padding:0 18px; height:54px;
+    background:var(--papier2); border-bottom:1px solid var(--trait); position:relative; z-index:30;
+  }
+  .marque{display:flex; align-items:baseline; gap:10px; white-space:nowrap; min-width:0}
+  .marque b{font-family:Georgia,serif;font-size:16.5px;letter-spacing:-.01em}
+  .marque span{font-size:11px;color:var(--encre2);text-transform:uppercase;letter-spacing:.09em}
+  nav{display:flex;gap:2px;margin-left:auto;flex-wrap:wrap}
+  nav button{
+    font:inherit;font-size:13.5px;padding:7px 13px;border:1px solid transparent;border-radius:8px;
+    background:transparent;color:var(--encre2);cursor:pointer;transition:.15s;
+  }
+  nav button:hover{background:#efe7d7;color:var(--encre)}
+  nav button[aria-selected="true"]{background:var(--encre);color:#fdf9f0;border-color:var(--encre)}
+
+  /* ---------- panneaux ---------- */
+  main{flex:1;position:relative;min-height:0}
+  section.vue{position:absolute;inset:0;display:none;overflow:auto}
+  section.vue.actif{display:block}
+  section.vue.plein.actif{display:flex}
+
+  /* ---------- vue simulation ---------- */
+  #scene{position:relative;flex:1;min-width:0;overflow:hidden;background:#cfd9d2}
+  #gl{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+  #gl:active{cursor:grabbing}
+  #panneau{
+    width:372px;flex:0 0 372px;background:var(--papier2);border-left:1px solid var(--trait);
+    display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;
+  }
+  .bloc{padding:10px 15px;border-bottom:1px solid var(--trait)}
+  .bloc:last-child{border-bottom:none}
+  .bloc h3{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--encre2);
+    font-family:"Segoe UI",sans-serif;font-weight:700;margin:0 0 9px}
+  .couche{display:flex;align-items:center;gap:9px;padding:4px 0;cursor:pointer;font-size:13px}
+  .couche input{appearance:none;width:30px;height:17px;border-radius:9px;background:#ddd3c0;
+    position:relative;cursor:pointer;transition:.18s;flex:0 0 auto;margin:0}
+  .couche input:checked{background:var(--eau)}
+  .couche input::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;
+    border-radius:50%;background:#fff;transition:.18s}
+  .couche input:checked::after{transform:translateX(13px)}
+  .couche .pastille{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
+  .vues{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .vues button{
+    font:inherit;font-size:12px;padding:7px 7px;border:1px solid var(--trait2);border-radius:7px;
+    background:#fff;color:var(--encre);cursor:pointer;transition:.15s;text-align:left;line-height:1.2
+  }
+  .vues button:hover{border-color:var(--eau);color:var(--eau)}
+  .vues button em{display:block;font-style:normal;font-size:9.5px;color:var(--encre2);margin-top:2px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:7px 10px;font-size:12.5px}
+  .stats div span{display:block;color:var(--encre2);font-size:10px;text-transform:uppercase;letter-spacing:.06em}
+  .stats div b{font-size:15px;font-family:Georgia,serif;font-weight:600}
+
+  /* bandeau de phase */
+  .phasebar{
+    font-size:11.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+    padding:6px 10px;border-radius:7px;text-align:center;margin-bottom:9px;transition:.4s;
+    background:#dbeef7;color:#0d4c66;border:1px solid #b8dced;
+  }
+  .phasebar.p2{background:#e0e2f5;color:#37347a;border-color:#c3c6e8}
+  .phasebar.p3{background:#eee6d5;color:#6b5a2e;border-color:#ddd0b4}
+  .horloge{display:flex;align-items:baseline;gap:8px;margin-bottom:7px}
+  .horloge b{font-family:Georgia,serif;font-size:21px;font-weight:600;letter-spacing:-.01em}
+  .horloge span{font-size:11.5px;color:var(--encre2)}
+  #analyse{font-size:12.5px;line-height:1.5;color:#453e34;margin:0;min-height:74px}
+  #analyse b{color:var(--encre)}
+
+  /* limnigramme */
+  #chart{display:block;width:100%;height:182px;border-radius:7px;background:#fff;
+    border:1px solid #eae2d0}
+  .puces{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:8px;font-size:11px;color:var(--encre2)}
+  .puce{display:flex;align-items:center;gap:5px}
+  .puce i{width:13px;height:3.5px;border-radius:2px;display:block}
+
+  /* tableau des niveaux */
+  table.niveaux{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.niveaux td{padding:4px 0;border-bottom:1px solid #f0e9da}
+  table.niveaux tr:last-child td{border-bottom:none}
+  table.niveaux td.nom{white-space:nowrap}
+  table.niveaux td.nom i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+  table.niveaux td.val{text-align:right;font-variant-numeric:tabular-nums;
+    font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--encre2)}
+  table.niveaux td.val b{color:var(--encre);font-size:13.5px}
+  table.niveaux td.bar{width:74px;padding-left:8px}
+  table.niveaux .jauge{height:6px;border-radius:3px;background:#eee6d4;overflow:hidden}
+  table.niveaux .jauge i{display:block;height:100%;width:0;border-radius:3px;transition:width .12s linear}
+
+  /* HUD 3D */
+  #boussole{position:absolute;top:12px;left:12px;width:50px;height:50px;pointer-events:none;
+    filter:drop-shadow(0 1px 3px rgba(0,0,0,.25))}
+  #echelle{position:absolute;bottom:12px;left:12px;pointer-events:none;color:#20303a;
+    font-size:11px;text-shadow:0 1px 0 rgba(255,255,255,.85)}
+  #echelle i{display:block;height:5px;border:1.5px solid #20303a;border-top:none;margin-bottom:2px}
+  #msg{position:absolute;left:50%;top:14px;transform:translateX(-50%);max-width:min(620px,78%);
+    background:rgba(28,34,38,.9);color:#f4efe4;padding:9px 15px;border-radius:9px;font-size:13px;
+    opacity:0;transition:opacity .35s;pointer-events:none;text-align:center;line-height:1.45}
+  #msg.on{opacity:1}
+  #vignette{position:absolute;bottom:12px;right:12px;font-size:10.5px;color:#3a4a52;
+    background:rgba(255,253,247,.82);border:1px solid rgba(0,0,0,.08);border-radius:7px;
+    padding:5px 9px;line-height:1.45;pointer-events:none;max-width:230px}
+  #vignette b{color:#0d4c66}
+
+  /* ---------- barre de transport ---------- */
+  #transport{
+    flex:none;display:flex;align-items:center;gap:12px;padding:9px 16px;height:70px;
+    background:var(--encre);color:#f2ece0;border-top:1px solid #1b1712;
+  }
+  body:not(.mode-simu) #transport{display:none}
+  #transport button{
+    font:inherit;font-size:13px;border-radius:8px;cursor:pointer;border:1px solid transparent;
+    transition:.15s;display:flex;align-items:center;gap:7px;white-space:nowrap;
+  }
+  #btnPlay{background:#e8e0cd;color:#2b2620;padding:9px 17px;font-weight:700;min-width:118px;
+    justify-content:center}
+  #btnPlay:hover{background:#fffdf7}
+  #btnPlay.joue{background:#3f93b5;color:#fff}
+  #btnPlay.joue:hover{background:#4aa6c9}
+  #btnReset,#btnVitesse{background:rgba(255,255,255,.09);color:#f2ece0;border-color:rgba(255,255,255,.16);
+    padding:9px 12px}
+  #btnReset:hover,#btnVitesse:hover{background:rgba(255,255,255,.18)}
+  #btnVitesse{min-width:52px;justify-content:center;font-variant-numeric:tabular-nums}
+  .piste{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0}
+  .rail{position:relative;height:22px;display:flex;align-items:center}
+  .rail .fond{position:absolute;left:0;right:0;height:7px;background:rgba(255,255,255,.16);
+    border-radius:4px;overflow:hidden}
+  .rail .fait{position:absolute;left:0;top:0;bottom:0;width:0;background:#3f93b5;border-radius:4px}
+  .rail .borne{position:absolute;top:-3px;bottom:-3px;width:2px;background:rgba(255,255,255,.42)}
+  .rail .tete{position:absolute;top:50%;width:15px;height:15px;border-radius:50%;background:#fffdf7;
+    border:2px solid #3f93b5;transform:translate(-50%,-50%);pointer-events:none;
+    box-shadow:0 1px 4px rgba(0,0,0,.4)}
+  #seek{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;margin:0}
+  .reperes{display:flex;justify-content:space-between;font-size:10px;color:#a99f8d;
+    letter-spacing:.04em;padding:0 2px}
+  .chrono{text-align:right;min-width:126px}
+  .chrono b{display:block;font-family:Georgia,serif;font-size:16px;font-weight:600}
+  .chrono span{font-size:10.5px;color:#a99f8d;letter-spacing:.03em}
+
+  /* ---------- pages texte ---------- */
+  .page{max-width:900px;margin:0 auto;padding:32px 28px 80px}
+  .page h1{border-bottom:2px solid var(--encre);padding-bottom:10px;margin-bottom:22px}
+  .page td:first-child{white-space:nowrap}
+  .chapeau{font-size:16.5px;color:var(--encre2);margin-bottom:26px;max-width:70ch}
+  .grille2{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  @media (max-width:860px){.grille2{grid-template-columns:1fr}}
+  .carte{background:var(--papier2);border:1px solid var(--trait);border-radius:10px;padding:16px 18px;box-shadow:var(--ombre)}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--trait)}
+  th{font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--encre2);font-weight:600}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,Consolas,monospace}
+  .chaine{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:18px 0}
+  .chaine div{flex:1 1 150px;background:var(--papier2);border:1px solid var(--trait);padding:10px 12px;font-size:13px}
+  .chaine div:first-child{border-radius:9px 0 0 9px}
+  .chaine div:last-child{border-radius:0 9px 9px 0}
+  .chaine div b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--or)}
+  .note{font-size:13px;color:var(--encre2);border-left:3px solid var(--trait2);padding-left:12px}
+  .q{margin:0 0 18px;padding:14px 16px;background:var(--papier2);border:1px solid var(--trait);border-radius:10px}
+  .q p.enonce{font-weight:600;margin-bottom:10px}
+  .q label{display:block;padding:6px 9px;border-radius:7px;cursor:pointer;font-size:14px}
+  .q label:hover{background:#f0ead9}
+  .q input[type=radio]{margin-right:8px}
+  .q .rep{font-size:13px;margin-top:8px;padding:8px 10px;border-radius:7px;display:none}
+  .q .rep.bon{display:block;background:#e3f0e3;color:#245c2c}
+  .q .rep.mauvais{display:block;background:#f7e3dd;color:#8a3418}
+  .btn{font:inherit;font-size:13.5px;padding:8px 15px;border-radius:8px;border:1px solid var(--encre);
+    background:var(--encre);color:#fdf9f0;cursor:pointer}
+  .btn:hover{background:#403830}
+  .btn.sec{background:transparent;color:var(--encre)}
+  .verrou{display:flex;gap:8px;align-items:center;margin:10px 0}
+  .verrou input{font:inherit;width:90px;padding:6px 9px;border:1px solid var(--trait2);border-radius:7px;
+    letter-spacing:.18em;text-align:center}
+  .profilbox{background:var(--papier2);border:1px solid var(--trait);border-radius:10px;padding:8px;margin:14px 0}
+  .profilbox canvas{display:block;width:100%;height:170px}
+  .mini{font-size:12px;color:var(--encre2)}
+  @media print{
+    header,nav,#panneau,#scene,#transport{display:none!important}
+    body{overflow:visible;display:block}
+    section.vue{display:block!important;position:static;height:auto;overflow:visible}
+    .page{padding:0}
+    .no-print{display:none!important}
+  }
+</style>
+</head>
+<body class="mode-simu">
+<header>
+  <div class="marque"><b>La crue de l'Huveaune</b><span>pluie · ruissellement · karst</span></div>
+  <nav id="onglets">
+    <button data-vue="simu" aria-selected="true">Simulation</button>
+    <button data-vue="bassin">Le bassin</button>
+    <button data-vue="activites">Activités</button>
+    <button data-vue="bilan">Bilan</button>
+    <button data-vue="prof">Fiche prof</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ============ SIMULATION ============ -->
+  <section class="vue plein actif" id="vue-simu">
+    <div id="scene">
+      <canvas id="gl"></canvas>
+      <svg id="boussole" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="46" fill="rgba(255,253,247,.86)" stroke="#8a7c63" stroke-width="2"/>
+        <g id="aiguille">
+          <path d="M50 12 L58 52 L50 46 L42 52 Z" fill="#a8611f"/>
+          <path d="M50 88 L42 48 L50 54 L58 48 Z" fill="#8a7c63" opacity=".45"/>
+          <text x="50" y="30" text-anchor="middle" font-size="15" font-family="Georgia,serif" fill="#2b2620">N</text>
+        </g>
+      </svg>
+      <div id="echelle"><i></i><span>10 km</span></div>
+      <div id="msg"></div>
+      <div id="vignette">Fais glisser pour tourner · molette pour zoomer · <b>clic sur le relief</b> pour suivre une goutte jusqu'à l'exutoire</div>
+    </div>
+
+    <aside id="panneau">
+      <div class="bloc">
+        <div class="phasebar" id="phaseBar">Phase 1 · Ruissellement de surface</div>
+        <div class="horloge"><b id="horloge">T + 0,0 h</b><span id="jourHeure">Jour 1 · 00 h 00</span></div>
+        <p id="analyse">Début de l'épisode pluvieux. La pluie arrive de la mer et remonte vers la Sainte-Baume.</p>
+      </div>
+
+      <div class="bloc">
+        <h3>Limnigrammes — hauteur d'eau par station</h3>
+        <canvas id="chart"></canvas>
+        <div class="puces" id="puces"></div>
+      </div>
+
+      <div class="bloc">
+        <h3>Hauteurs d'eau à l'instant T</h3>
+        <table class="niveaux" id="tabNiveaux"></table>
+      </div>
+
+      <div class="bloc">
+        <h3>Couches</h3>
+        <label class="couche"><input type="checkbox" id="c-relief" checked><span class="pastille" style="background:#9aa86f"></span>Relief (MNT)</label>
+        <label class="couche"><input type="checkbox" id="c-bassin" checked><span class="pastille" style="background:#f0a500"></span>Ligne de partage des eaux</label>
+        <label class="couche"><input type="checkbox" id="c-eau" checked><span class="pastille" style="background:#17607d"></span>Cours d'eau</label>
+        <label class="couche"><input type="checkbox" id="c-noms" checked><span class="pastille" style="background:#5d5346"></span>Étiquettes</label>
+        <label class="couche"><input type="checkbox" id="c-pluie" checked><span class="pastille" style="background:#9fc6dc"></span>Front de pluie</label>
+        <label class="couche"><input type="checkbox" id="c-ruiss" checked><span class="pastille" style="background:#38bdf8"></span>Ruissellement sur les versants</label>
+        <label class="couche"><input type="checkbox" id="c-limni" checked><span class="pastille" style="background:#f59e0b"></span>Limnimètres</label>
+        <label class="couche"><input type="checkbox" id="c-qgis"><span class="pastille" style="background:#2f6fa8"></span>Fond de carte QGIS</label>
+      </div>
+
+      <div class="bloc">
+        <h3>Points de vue</h3>
+        <div class="vues">
+          <button data-cam="ensemble">Vue d'ensemble<em>clé 1</em></button>
+          <button data-cam="dessus">Vue du dessus<em>clé 2</em></button>
+          <button data-cam="amont">L'amont : St-Zacharie<em>clé 3</em></button>
+          <button data-cam="embouchure">L'aval : Marseille<em>clé 4</em></button>
+        </div>
+      </div>
+
+      <div class="bloc">
+        <h3>Exagération verticale <b id="exagVal" style="float:right;font-weight:600;font-size:12px">×2,2</b></h3>
+        <div class="curseur"><input type="range" id="exag" min="1" max="4" step="0.1" value="2.2" style="width:100%"></div>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ============ LE BASSIN ============ -->
+  <section class="vue" id="vue-bassin">
+    <div class="page">
+      <h1>Un bassin versant, comment ça marche ?</h1>
+      <p class="chapeau">Un bassin versant est un territoire dont <b>toute l'eau qui tombe rejoint le même exutoire</b>.
+      La limite entre deux bassins s'appelle la <b>ligne de partage des eaux</b> : elle passe par les crêtes.
+      Ici, 418 km² de collines et de massifs provençaux se vident dans la mer par un seul fleuve côtier, l'Huveaune.</p>
+
+      <div class="chaine">
+        <div><b>1 · Le MNT</b>Un modèle numérique de terrain donne l'altitude de chaque point (maille 350 m).</div>
+        <div><b>2 · La pente</b>Pour chaque maille, on cherche la direction de la plus forte descente (D8).</div>
+        <div><b>3 · L'accumulation</b>On compte l'eau reçue en remontant les écoulements : les axes se dessinent.</div>
+        <div><b>4 · Le bassin</b>Toutes les mailles qui arrivent au même exutoire forment le bassin versant.</div>
+      </div>
+
+      <h3>Profil en long de l'Huveaune</h3>
+      <div class="profilbox"><canvas id="profilCv"></canvas></div>
+      <p class="note">Lecture : la pente est forte à l'amont (la clue, en amont d'Auriol), puis le lit s'aplatit
+      vers la plaine littorale. C'est cette rupture de pente qui explique que l'eau s'étale et s'accumule
+      dans la traversée d'Aubagne et de Marseille.<br>
+      Le tracé du MNT démarre à <b>468 m</b> : c'est là que le cours d'eau est identifié sur la carte,
+      un peu en aval de la source réelle (vers 600 m, au pied de la Sainte-Baume).</p>
+
+      <div class="grille2">
+        <div>
+          <h3>Les chiffres mesurés sur le MNT</h3>
+          <table>
+            <tr><th>Grandeur</th><th style="text-align:right">Valeur</th></tr>
+            <tr><td>Emprise de la tuile</td><td class="num">44,7 × 30,3 km</td></tr>
+            <tr><td>Maille du MNT</td><td class="num">352 × 336 m</td></tr>
+            <tr><td>Surface du bassin</td><td class="num">418 km²</td></tr>
+            <tr><td>Longueur de l'Huveaune</td><td class="num">50,8 km</td></tr>
+            <tr><td>Altitude maximale</td><td class="num">1148 m</td></tr>
+            <tr><td>Dénivelé source → mer</td><td class="num">≈ 470 m</td></tr>
+            <tr><td>Pente moyenne du lit</td><td class="num">≈ 12 m/km</td></tr>
+          </table>
+          <p class="note" style="margin-top:10px">La surface obtenue (418 km²) est un peu inférieure aux
+          valeurs des atlas (430 à 500 km²) : dans la plaine littorale, presque plate, la méthode de la
+          plus forte pente perd de la surface. C'est une bonne occasion de parler des limites d'un modèle.</p>
+        </div>
+        <div>
+          <h3>Les principaux cours d'eau</h3>
+          <table id="tabRivieres">
+            <tr><th>Cours d'eau</th><th style="text-align:right">Longueur dans le bassin</th></tr>
+          </table>
+          <p class="note" style="margin-top:12px">L'Huveaune prend sa source au pied de la Sainte-Baume,
+          traverse Saint-Zacharie, Auriol, Roquevaire, Aubagne, puis atteint la mer à Marseille.
+          Le Jarret et le Merlançon sont ses deux derniers affluents avant l'embouchure.</p>
+        </div>
+      </div>
+
+      <h3>Ce que la maquette ajoute au dessin à plat</h3>
+      <p>Sur une carte en deux dimensions, un bassin versant se lit comme une tache. En trois dimensions,
+      on comprend <b>pourquoi</b> l'eau va là : les crêtes séparent, les talwegs rassemblent. L'exagération
+      verticale (×2,2 par défaut) est un choix de représentation : la Sainte-Baume ne culmine qu'à 1148 m
+      pour 44 km de large, un relief presque invisible à l'échelle réelle.</p>
+      <p class="note">Repère utile en classe : à l'échelle de la maquette sans exagération, le mont Blanc
+      (4808 m) ferait 5,4 cm de haut sur une table de 50 cm de large.</p>
+
+      <h3>D'où vient cette pluie ?</h3>
+      <p>L'air marin, chaud et très humide, arrive de la Méditerranée. En rencontrant le massif de la
+      Sainte-Baume, il est forcé de s'élever, se refroidit et laisse tomber des pluies intenses :
+      c'est un <b>épisode méditerranéen</b>. La maquette montre ce front progressant de la mer
+      (Marseille) vers le massif (Saint-Zacharie), avec des pluies renforcées sur les hauteurs.</p>
+      <p class="note">Conséquence à faire remarquer : la ville, en aval, est arrosée <b>avant</b> les
+      sommets. Et comme le béton n'infiltre pas, c'est là que l'eau monte le plus vite.</p>
+
+      <h3>Et la crue là-dedans ?</h3>
+      <p>Quand il pleut fort, l'eau qui tombe sur les versants ne s'infiltre pas assez vite : elle
+      <b>ruisselle</b> et rejoint le lit en quelques heures. Une partie s'enfonce dans les calcaires du
+      massif de la Sainte-Baume et ressort plus tard à la source : c'est la <b>vidange karstique</b>,
+      qui met une quinzaine d'heures à faire monter l'Huveaune. Deux mécanismes, deux horaires — c'est
+      toute l'histoire de l'onglet Simulation.</p>
+    </div>
+  </section>
+
+  <!-- ============ ACTIVITÉS ============ -->
+  <section class="vue" id="vue-activites">
+    <div class="page">
+      <h1>Activités</h1>
+
+      <h2>1 · Où va l'eau de pluie ?</h2>
+      <p>Sur la carte ci-dessous, six points sont repérés. Pour chacun, dis si l'eau qui y tombe
+      rejoint l'Huveaune et la mer, ou si elle part vers un autre bassin. Utilise le bouton
+      <b>Vérifier</b> : le calcul est fait avec le même modèle que la maquette 3D.</p>
+      <div class="carte" style="padding:10px">
+        <canvas id="cvActivite" width="760" height="430" style="width:100%;height:auto;display:block"></canvas>
+      </div>
+      <div id="act1" style="margin-top:14px"></div>
+      <p><button class="btn" id="btnAct1">Vérifier</button> <span id="score1" style="margin-left:10px;font-size:14px"></span></p>
+
+      <h2 style="margin-top:34px">2 · Lire le profil en long</h2>
+      <div class="q">
+        <p class="enonce">a. À quelle altitude se trouve la source de l'Huveaune, d'après le profil de la maquette ?</p>
+        <label><input type="radio" name="p1" value="a">environ 60 m</label>
+        <label><input type="radio" name="p1" value="b">environ 300 m</label>
+        <label><input type="radio" name="p1" value="c">environ 470 m</label>
+        <label><input type="radio" name="p1" value="d">environ 1150 m</label>
+        <div class="rep" data-q="p1"></div>
+      </div>
+      <div class="q">
+        <p class="enonce">b. Entre quelles deux villes la pente du lit est-elle la plus forte ?</p>
+        <label><input type="radio" name="p2" value="a">entre Saint-Zacharie et Auriol</label>
+        <label><input type="radio" name="p2" value="b">entre Roquevaire et Aubagne</label>
+        <label><input type="radio" name="p2" value="c">entre Aubagne et la mer</label>
+        <div class="rep" data-q="p2"></div>
+      </div>
+      <p><button class="btn" id="btnAct2">Vérifier</button></p>
+
+      <h2 style="margin-top:34px">3 · Lire les limnigrammes</h2>
+      <p>Le graphique ci-dessous est celui de l'onglet Simulation, complet sur 48 heures.
+      Une seule courbe monte la première : <b>Marseille</b>, en aval. Surprenant ?</p>
+      <div class="carte" style="padding:10px">
+        <canvas id="cvAct3" width="820" height="300" style="width:100%;height:auto;display:block"></canvas>
+      </div>
+      <div class="q" style="margin-top:14px">
+        <p class="enonce">a. Vers quelle heure le premier pic arrive-t-il à Marseille ?</p>
+        <label><input type="radio" name="p4" value="a">vers T + 6 h</label>
+        <label><input type="radio" name="p4" value="b">vers T + 16 h</label>
+        <label><input type="radio" name="p4" value="c">vers T + 34 h</label>
+        <div class="rep" data-q="p4"></div>
+      </div>
+      <div class="q">
+        <p class="enonce">b. Pourquoi l'aval monte-t-il avant l'amont ?</p>
+        <label><input type="radio" name="p5" value="a">parce que l'eau remonte le cours du fleuve</label>
+        <label><input type="radio" name="p5" value="b">parce que la pluie tombe d'abord sur la ville et ruisselle sur place</label>
+        <label><input type="radio" name="p5" value="c">parce que la mer monte à marée haute</label>
+        <div class="rep" data-q="p5"></div>
+      </div>
+      <div class="q">
+        <p class="enonce">c. Que se passe-t-il entre T + 11 h et T + 22 h ?</p>
+        <label><input type="radio" name="p6" value="a">l'aquifère karstique se vidange et envoie une onde depuis l'amont</label>
+        <label><input type="radio" name="p6" value="b">il ne se passe rien, la crue est finie</label>
+        <label><input type="radio" name="p6" value="c">la pluie recommence plus fort</label>
+        <div class="rep" data-q="p6"></div>
+      </div>
+      <p><button class="btn" id="btnAct3">Vérifier</button></p>
+
+      <h2 style="margin-top:34px">4 · Vocabulaire</h2>
+      <div class="q">
+        <p class="enonce">Comment appelle-t-on la limite qui sépare deux bassins versants ?</p>
+        <label><input type="radio" name="p3" value="a">un talweg</label>
+        <label><input type="radio" name="p3" value="b">une ligne de partage des eaux</label>
+        <label><input type="radio" name="p3" value="c">un exutoire</label>
+        <label><input type="radio" name="p3" value="d">une confluence</label>
+        <div class="rep" data-q="p3"></div>
+      </div>
+      <p><button class="btn" id="btnAct4">Vérifier</button></p>
+    </div>
+  </section>
+
+  <!-- ============ BILAN ============ -->
+  <section class="vue" id="vue-bilan">
+    <div class="page">
+      <h1>Bilan</h1>
+      <p class="chapeau">Huit questions pour faire le point. Rédige d'abord tes réponses sur la fiche,
+      puis débloque la correction avec le code donné par le professeur.</p>
+      <div id="bilan"></div>
+      <div class="verrou">
+        <input id="codeBilan" maxlength="6" inputmode="numeric" placeholder="····" aria-label="code">
+        <button class="btn" id="btnBilan">Débloquer la correction</button>
+        <span id="errBilan" style="color:#8a3418;font-size:13px"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FICHE PROF ============ -->
+  <section class="vue" id="vue-prof">
+    <div class="page">
+      <h1>Fiche professeur</h1>
+      <div class="grille2">
+        <div>
+          <h3>Objectifs (cycle 4)</h3>
+          <p>Relier relief, pentes et écoulements ; comprendre ce qu'est un bassin versant et une ligne
+          de partage des eaux ; lire un profil en long et un limnigramme ; distinguer deux temps de
+          réponse d'un bassin : le <b>ruissellement</b> (rapide, local) et la <b>vidange karstique</b>
+          (lente, depuis l'amont). Utiliser un modèle numérique et en interpréter les limites.</p>
+          <h3>Déroulé conseillé (55 min)</h3>
+          <table>
+            <tr><td>5 min</td><td>Vue d'ensemble : repérer la Sainte-Baume, l'embouchure, la ligne de partage.</td></tr>
+            <tr><td>10 min</td><td>Lancer la simulation à ×2 : la pluie remonte de la mer vers le massif, les gouttes ruissellent vers le lit.</td></tr>
+            <tr><td>10 min</td><td>Phase 1 : comparer les 4 limnimètres. Qui monte en premier ? Faire formuler une hypothèse.</td></tr>
+            <tr><td>10 min</td><td>Phase 2 : observer l'onde qui part de St-Zacharie et descend. Lien avec le karst.</td></tr>
+            <tr><td>10 min</td><td>Activité 3 : lecture des limnigrammes, repérage des deux pics.</td></tr>
+            <tr><td>5 min</td><td>Bilan écrit, correction projetée.</td></tr>
+            <tr><td>5 min</td><td>Retour sur les limites du modèle.</td></tr>
+          </table>
+          <h3>Réponses attendues</h3>
+          <table id="tabReponses"></table>
+        </div>
+        <div>
+          <h3>Ce que montre — et ne montre pas — la simulation</h3>
+          <ul style="padding-left:18px;font-size:14px">
+            <li>Le <b>relief, le bassin et le réseau hydrographique</b> sont réels : ils viennent d'un MNT
+            exporté de QGIS (maille 352 × 336 m) et d'OpenStreetMap.</li>
+            <li>Les <b>limnigrammes</b> sont une <b>reconstitution</b> : deux composantes (ruissellement
+            et vidange karstique) modélisées par des courbes en cloche, calées sur l'allure des courbes
+            de l'épisode. Ce ne sont pas les enregistrements bruts des stations. À dire aux élèves.</li>
+            <li>Les <b>hauteurs d'eau</b> sont multipliées par environ <b>130</b> à l'écran et la largeur
+            du lit par une vingtaine (sinon 1,50 m serait invisible sur une carte de 45 km). Les chiffres
+            affichés dans les étiquettes et les limnigrammes, eux, sont à la bonne échelle.</li>
+            <li>Le <b>front de pluie</b> est un modèle simple : une bande diagonale qui balaie le bassin
+            du large (sud-ouest) vers le massif (nord-est), avec un renforcement sur le relief. Un vrai
+            épisode méditerranéen est fait de cellules orageuses presque stationnaires sur les hauteurs ;
+            ni la durée ni les cumuls réels ne sont reproduits.</li>
+            <li>Le ruissellement suit la <b>plus forte pente (D8)</b> sur la maille du MNT : les petits
+            vallons et les méandres ne sont pas représentés.</li>
+            <li>La <b>propagation dans le lit</b> est une interpolation entre les quatre stations :
+            elle est continue, alors qu'une vraie onde de crue a un front.</li>
+            <li>Le modèle ne calcule <b>ni débit ni volume</b> : il ne permet pas de prévoir une crue,
+            seulement d'expliquer son déroulement.</li>
+            <li>Attention à ne pas confondre <b>hauteur d'eau</b> et <b>débit</b> : une hauteur dépend
+            aussi de la largeur et de la forme du lit. C'est pourquoi le pic est plus haut à Roquevaire
+            (lit encaissé) qu'à Aubagne ou à Marseille (lit large, plaine).</li>
+          </ul>
+          <h3>Limites du modèle de terrain</h3>
+          <ul style="padding-left:18px;font-size:14px">
+            <li>Maille de <b>352 × 336 m</b> : les détails du lit ne sont pas représentés.</li>
+            <li>La limite du bassin est <b>calculée</b> (méthode D8) ; le tracé bleu du projet QGIS
+            peut s'en écarter de quelques centaines de mètres.</li>
+            <li>Surface calculée : 418 km², contre 430 à 500 km² dans les atlas — l'écart vient de la
+            plaine littorale, trop plane pour la méthode D8 à cette résolution.</li>
+            <li>Près de l'embouchure, la plaine urbaine est plate : l'exutoire est approximatif.</li>
+            <li>L'échelle verticale est <b>exagérée</b> ; les pentes affichées ne sont pas les pentes réelles.</li>
+          </ul>
+          <h3>Sources</h3>
+          <p class="note">Application mono-fichier : <i>index.html</i> contient three.js, les données du
+          MNT et le code. Aucune connexion internet n'est nécessaire.<br>
+          MNT et réseau hydrographique : export QGIS de <i>D:\IA\BVHuveaune3D</i>
+          (Scene.obj + texture). Noms des cours d'eau et tracés : OpenStreetMap, ODbL. Calculs
+          hydrologiques (remplissage des cuvettes, directions D8, accumulation) : réalisés pour cette
+          maquette. Données de crue : reconstitution d'après l'application « Animation karst ».</p>
+        </div>
+      </div>
+      <p class="no-print" style="margin-top:24px"><button class="btn" onclick="window.print()">Imprimer cette fiche</button></p>
+    </div>
+  </section>
+</main>
+
+<footer id="transport">
+  <button id="btnPlay">▶ Lecture</button>
+  <button id="btnReset" title="Revenir au début">↺</button>
+  <button id="btnVitesse" title="Vitesse de lecture">1×</button>
+  <div class="piste">
+    <div class="rail">
+      <div class="fond"><div class="fait" id="fait"></div></div>
+      <div class="borne" style="left:22.9%"></div>
+      <div class="borne" style="left:50%"></div>
+      <div class="tete" id="tete" style="left:0%"></div>
+      <input type="range" id="seek" min="0" max="48" step="0.1" value="0" aria-label="position dans le temps">
+    </div>
+    <div class="reperes"><span>0 h</span><span>12 h</span><span>24 h</span><span>36 h</span><span>48 h</span></div>
+  </div>
+  <div class="chrono"><b id="tTxt">T + 0,0 h</b><span id="tPhase">Phase 1</span></div>
+</footer>
+
+<!--INJECT_THREE-->
+<!--INJECT_BVH-->
+<!--INJECT_APP-->
+</body>
+</html>
